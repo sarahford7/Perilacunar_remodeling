@@ -1,0 +1,219 @@
+clc
+close all
+clear 
+
+%% Load File
+% 
+% [baseFileName, folder] = uigetfile({'*.jpg';'*.png';'*.bmp';'*.jpeg';'*.tif'});  %select file 
+% fullFileName = fullfile(folder, baseFileName); %establish name of file
+% A = imread(fullFileName);
+
+
+A = imread('/Users/sarahford/Documents/TibiaOsteocyteTest.jpg');
+%A=imread('/Users/sarahford/Desktop/OsteocyteSHG.jpg');
+
+%A=imread('/Users/sarahford/Desktop/ellipse.png');
+imshow(A)
+title('JPEG Image')
+
+%%Create mask containing all greens in the forefront and background. 
+%AG = allGreen
+
+[BW_AG,maskedRGBImage_AG] = createAllGreenMask(A);
+figure
+imshow(maskedRGBImage_AG)
+title('maskedRGBImage AG')
+
+
+%%Create mask of the brightest greens, targetsing osteob last lines of bone
+%%formation
+%BG=BrightGreen
+[BW_BG,maskedRGBImage_BG] = createBrightGreenMask(maskedRGBImage_AG);
+figure
+imshow(maskedRGBImage_BG)
+title('maskedRGBImage BG')
+
+%%Option to find all the info on ellipses for brightest green
+
+%%Subtract the 2 images to be left with the faint ellipses
+%%BW_OCY = the faintest leaving osteocytes
+%in order to save on space i want to subtract each channel 
+
+%% Attempt 1
+% image_OCY = zeros(size(maskedRGBImage_AG));
+% image
+% for n=1:3
+% 
+%     image_AG = maskedRGBImage_AG(:,:,n); %calls n channel
+%     image_BG = maskedRBGImage_BG(:,:,n);
+%     image_OCY(:,:,n) = imageAG - imageBG;
+% 
+% end
+% 
+% figure
+% image_OCY = uint8(image_OCY);
+%  imshow(image_OCY)
+
+% filteredRGBImage1 = maskedRGBImage(:,:,1);
+% filteredRGBImage2 = maskedRGBImage(:,:,2);
+% filteredRGBImage3 = maskedRGBImage(:,:,3);
+% 
+% bwareaopen(filteredRGBImage1, 600);
+% bwareaopen(filteredRGBImage2, 600);
+% bwareaopen(filteredRGBImage3, 600);
+% 
+% filteredRGBImage = zeros(size(maskedRGBImage));
+% filteredRGBImage(:,:,1) = filteredRGBImage1;
+% filteredRGBImage(:,:,2) = filteredRGBImage2;
+% filteredRGBImage(:,:,3) = filteredRGBImage3;
+% 
+% filteredRGBImage = uint8(filteredRGBImage);
+
+
+%% Attempt 2
+% 
+% image_OCY = zeros(size(BW_AG));
+% image_OCY = logical(image_OCY):
+% image_OCY = BW_AG - BW_BG;
+% figure
+% image_OCY = uint8(image_OCY);
+% imshow(image_OCY)
+
+
+%% Attempt 3 - sucess
+
+ image_OCY = zeros(size(maskedRGBImage_AG));
+
+for n=1:3
+ 
+    image_OCY(:,:,n) = maskedRGBImage_AG(:,:,n) - maskedRGBImage_BG(:,:,n);
+
+end
+
+ figure
+ image_OCY = uint8(image_OCY);
+ imshow(image_OCY)
+ title('Image OCY')
+
+%% Notes
+% Use color thresholder to take a bright mask, isolate circles and ellipse
+% Remove circles and ellipse; this keeps them in the end as we subtract the
+% mask
+%Set mask pixels = black on original image
+
+
+%Start again on new image, identify elippsoids, count
+
+
+
+%We need image_OCY to be binary
+
+%% Binary Image Creation
+[BW_binary,binary_OCY] = createBinaryMask(image_OCY);
+
+figure
+ imshow(binary_OCY)
+ title('Binary OCY')
+% %% Identifying location, shape and size of elippse
+s= regionprops("table",BW_binary,{'Centroid', 'MajorAxisLength', 'MinorAxisLength','Orientation'}) ;
+s = splitvars(s);
+
+
+%% Filter OCY based on axis length
+
+% Attempt 1
+% count = 0;
+% for k = 1:100
+%     if s(k).MajorAxisLength > 50 %counting all ovals larger than 50
+%         count = count + 1;
+%         s(k)= [];
+%     elseif s(k).MinorAxisLength < 10 %counting all ellipse less than 10
+%         count = count + 1;
+%         s(k)= [];
+%     end
+% 
+% end
+% 
+% newS = struct([]); %%zeros(size(count));
+
+% for k = 1:length(newS)
+%     if s(k).MajorAxisLength < 50 %counting all ovals larger than 50
+%         newS(k) = s(k);
+%     elseif s(k).MinorAxisLength > 10 %counting all ellipse less than 10
+%         newS(k) = s(k);
+%     end
+% 
+% end
+% 
+
+% count = 0;
+% for k = 1:length(s)
+% 
+% 
+% 
+% 
+%     if s(k).MajorAxisLength > 50 %counting all ovals larger than 50
+%         s([s.MajorAxisLength] > 50) = [];
+%         
+%         
+%         count = count + 1;
+%     end
+% 
+%     if s(k).MinorAxisLength < 10 %counting all ellipse less than 10
+%         count = count + 1;
+%     end
+% 
+% end
+
+
+
+%# find rows where 'a_field' is bigger than 2
+% idx = s.MajorAxisLength > 20;
+% 
+% fn = fieldnames(dataFile);
+% for i=1:numel(fn)
+%     data2.(fn{i}) = dataFile.(fn{i})(idx);
+% end
+
+
+
+%centroids = cat(1,s.Centroid);
+
+
+rows = (s.MajorAxisLength<60 &s.MajorAxisLength>15 &s.MinorAxisLength<20 &s.MinorAxisLength>5);
+
+s=s(rows,:);
+
+%% Use parametric form of the ellipse equation to plot the outline of ellipse over the image
+
+phi = linspace(0, 2*pi, 100);
+cosphi = cos(phi);
+sinphi = sin(phi);
+
+
+ hold on 
+for k = 1:height(s)
+    xbar =table2array(s(k,1));
+    
+    %s(k).Centroid(1);
+    ybar = table2array(s(k,2));
+
+    a = table2array(s(k,3))/2; %MajorAxisLength
+    b = table2array(s(k,4))/2; %MinorAxisLength
+
+    theta = pi*table2array(s(k,5))/180; %.Orientation
+    R = [cos(theta) sin(theta)
+        -sin(theta) cos(theta)
+        ];
+
+    xy = [a*cosphi; b*sinphi];
+    xy = R*xy;
+    x = xy(1,:) + xbar;
+    y = xy(2,:) + ybar;
+
+    plot(x,y,'r','LineWidth',2);
+    %plot(centroids(:,1),centroids(:,2),'b*')
+
+end
+
+hold off
